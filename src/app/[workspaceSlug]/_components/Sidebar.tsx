@@ -1,13 +1,13 @@
 'use client'
 
+// app/[workspaceSlug]/_components/Sidebar.tsx  (REPLACES Sprint 1 version)
 import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 import {
     LayoutGrid, List, Settings, Users, ChevronDown,
-    Plus, LogOut, Check, ChevronsUpDown
+    Plus, LogOut, Check, ChevronsUpDown, CheckSquare,
 } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { getInitials } from '@/lib/utils/format'
@@ -30,7 +30,7 @@ export default function Sidebar({ workspace, allWorkspaces, currentUser, memberR
 
     const navItems = [
         { href: `${base}/projects`, label: 'Projects', icon: LayoutGrid },
-        { href: `${base}/my-tasks`, label: 'My tasks', icon: List },
+        { href: `${base}/my-tasks`, label: 'My tasks', icon: CheckSquare },
     ]
 
     const settingsItems = [
@@ -58,9 +58,7 @@ export default function Sidebar({ workspace, allWorkspaces, currentUser, memberR
                     className="w-full flex items-center gap-2.5 rounded-md px-2 py-1.5 hover:bg-gray-800/60 transition-colors text-left"
                 >
                     <div className="w-6 h-6 rounded-md bg-brand-600 flex items-center justify-center flex-shrink-0">
-                        <span className="text-[10px] font-bold text-white">
-                            {workspace.name[0].toUpperCase()}
-                        </span>
+                        <span className="text-[10px] font-bold text-white">{workspace.name[0].toUpperCase()}</span>
                     </div>
                     <span className="flex-1 text-sm font-medium text-gray-200 truncate">{workspace.name}</span>
                     <ChevronsUpDown className="w-3.5 h-3.5 text-gray-600 flex-shrink-0" />

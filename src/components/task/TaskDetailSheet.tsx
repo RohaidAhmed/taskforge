@@ -131,7 +131,7 @@ export default function TaskDetailSheet({
     async function handleAssignee(userId: string | null) {
         setAssigneeOpen(false)
         const assignee = workspaceMembers.find(m => m.id === userId) ?? null
-        await updateField({ assignee_id: userId, assignee } as Partial<TaskWithAssignee>)
+        await updateField({ assignee_id: userId } as Partial<TaskWithAssignee>)
     }
 
     // ── Due date ──────────────────────────────────────────────

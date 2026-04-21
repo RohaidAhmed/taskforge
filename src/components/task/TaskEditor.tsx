@@ -58,6 +58,7 @@ export default function TaskEditor({ initialContent, onSave, editable = true, cl
                     !json.content[0].content)
             onSave(isEmpty ? null : json)
         },
+        immediatelyRender: false,
     })
 
     // Sync content if task changes

@@ -174,7 +174,7 @@ export async function reorderTask(
     projectId: string,
     userId: string,
     workspaceId: string,
-    previousStatus: TaskStatus
+    previousStatus: TaskStatus,
 ): Promise<{ error: string | null }> {
     const supabase = await createClient()
 
@@ -210,6 +210,13 @@ export async function reorderTask(
             .maybeSingle()
         if (data) belowOrder = data.board_order + 1000
     }
+
+    // if (assignee_id){
+    //     const {data} = await supabase
+    //         .from('tasks')
+    //         .select('assignee_id')
+
+    // }
 
     const newOrder =
         belowOrder === Infinity

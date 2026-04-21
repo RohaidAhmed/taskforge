@@ -1,29 +1,34 @@
-// app/[workspaceSlug]/projects/[projectId]/list/page.tsx
+// app/[workspaceSlug]/projects/[projectId]/list/page.tsx  (REPLACES Sprint 2)
 import { redirect, notFound } from 'next/navigation'
 import { Metadata } from 'next'
 import Link from 'next/link'
 import { getCurrentUser } from '@/lib/db/auth'
-import { getWorkspaceBySlug, getWorkspaceMember } from '@/lib/db/workspaces'
+import { getWorkspaceBySlug, getWorkspaceMember, getWorkspaceMembers } from '@/lib/db/workspaces'
 import { getProjectById } from '@/lib/db/projects'
-import { getTasksForBoard } from '@/lib/db/tasks'
+import { getLabelsForWorkspace } from '@/lib/db/tasks'
+import { getTasksForList } from '@/lib/db/list'
+import TaskTable from '@/components/task/TaskTable'
 import { LayoutGrid, List } from 'lucide-react'
-import PriorityBadge from '@/components/shared/PriorityBadge'
-import AssigneeAvatar from '@/components/shared/AssigneeAvatar'
-import { STATUS_LABELS, STATUS_COLORS } from '@/lib/store/boardStore'
-import { formatTaskId, formatDueDate, isOverdue } from '@/lib/utils/format'
-import { cn } from '@/lib/utils/cn'
+import type { TaskStatus, TaskPriority } from '@/types/database'
+import type { SortField, SortDirection } from '@/lib/db/list'
 
 export const metadata: Metadata = { title: 'List' }
 
 interface Props {
     params: Promise<{ workspaceSlug: string; projectId: string }>
+    searchParams: Promise<{
+        statuses?: string; priorities?: string; assignees?: string
+        labels?: string; q?: string; dueSoon?: string; overdue?: string
+        sort?: string; dir?: string
+    }>
 }
 
-export default async function ListPage({ params }: Props) {
+export default async function ListPage({ params, searchParams }: Props) {
     const user = await getCurrentUser()
-    if (!user) redirect('/auth/signin')
-    
+    if (!user) redirect('/auth/signin');
+
     const resolvedParams = await params;
+    const resolvedSearchParams = await searchParams;
 
     const workspace = await getWorkspaceBySlug(resolvedParams.workspaceSlug)
     if (!workspace) notFound()
@@ -34,7 +39,31 @@ export default async function ListPage({ params }: Props) {
     const project = await getProjectById(resolvedParams.projectId)
     if (!project || project.workspace_id !== workspace.id) notFound()
 
-    const tasks = await getTasksForBoard(project.id)
+    // Parse search params for server-side filtering
+    const parse = (v?: string) => v ? v.split(',').filter(Boolean) : []
+
+    const filters = {
+        statuses: parse(resolvedSearchParams.statuses) as TaskStatus[],
+        priorities: parse(resolvedSearchParams.priorities) as TaskPriority[],
+        assigneeIds: parse(resolvedSearchParams.assignees),
+        labelIds: parse(resolvedSearchParams.labels),
+        search: resolvedSearchParams.q ?? '',
+        dueSoon: resolvedSearchParams.dueSoon === '1',
+        overdue: resolvedSearchParams.overdue === '1',
+    }
+
+    const sort = {
+        field: (resolvedSearchParams.sort ?? 'created_at') as SortField,
+        direction: (resolvedSearchParams.dir ?? 'desc') as SortDirection,
+    }
+
+    const [tasks, membersWithProfile, labels] = await Promise.all([
+        getTasksForList(project.id, filters, sort),
+        getWorkspaceMembers(workspace.id),
+        getLabelsForWorkspace(workspace.id),
+    ])
+
+    const members = membersWithProfile.map(m => m.profile)
     const base = `/${workspace.slug}/projects/${project.id}`
 
     return (
@@ -51,66 +80,22 @@ export default async function ListPage({ params }: Props) {
                 </div>
                 <div className="flex items-center gap-1">
                     <Link href={`${base}/board`} className="btn-ghost btn-sm px-2.5 gap-1.5 text-gray-500">
-                        <LayoutGrid className="w-3.5 h-3.5" />Board
+                        <LayoutGrid className="w-3.5 h-3.5" /> Board
                     </Link>
                     <Link href={`${base}/list`} className="btn-ghost btn-sm px-2.5 gap-1.5 bg-gray-800 text-gray-200">
-                        <List className="w-3.5 h-3.5" />List
+                        <List className="w-3.5 h-3.5" /> List
                     </Link>
                 </div>
             </div>
 
-            {/* Table */}
-            <div className="flex-1 overflow-auto px-6 py-4">
-                <table className="w-full text-sm">
-                    <thead>
-                        <tr className="border-b border-gray-800">
-                            <th className="text-left py-2 px-3 text-xs font-medium text-gray-600 w-16">ID</th>
-                            <th className="text-left py-2 px-3 text-xs font-medium text-gray-600">Title</th>
-                            <th className="text-left py-2 px-3 text-xs font-medium text-gray-600 w-28">Status</th>
-                            <th className="text-left py-2 px-3 text-xs font-medium text-gray-600 w-24">Priority</th>
-                            <th className="text-left py-2 px-3 text-xs font-medium text-gray-600 w-24">Due date</th>
-                            <th className="text-left py-2 px-3 text-xs font-medium text-gray-600 w-20">Assignee</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-800/50">
-                        {tasks.map(task => (
-                            <tr key={task.id} className="hover:bg-gray-800/30 transition-colors cursor-pointer group">
-                                <td className="py-2.5 px-3">
-                                    <span className="text-xs font-mono text-gray-600">
-                                        {formatTaskId(project.identifier, task.sequence_number)}
-                                    </span>
-                                </td>
-                                <td className="py-2.5 px-3">
-                                    <span className="text-gray-200 group-hover:text-white transition-colors">{task.title}</span>
-                                </td>
-                                <td className="py-2.5 px-3">
-                                    <span className={cn('text-xs font-medium', STATUS_COLORS[task.status])}>
-                                        {STATUS_LABELS[task.status]}
-                                    </span>
-                                </td>
-                                <td className="py-2.5 px-3">
-                                    <PriorityBadge priority={task.priority} showLabel />
-                                </td>
-                                <td className="py-2.5 px-3">
-                                    {task.due_date ? (
-                                        <span className={cn('text-xs', isOverdue(task.due_date) ? 'text-red-400' : 'text-gray-500')}>
-                                            {formatDueDate(task.due_date)}
-                                        </span>
-                                    ) : (
-                                        <span className="text-gray-700 text-xs">—</span>
-                                    )}
-                                </td>
-                                <td className="py-2.5 px-3">
-                                    <AssigneeAvatar user={task.assignee} size="sm" />
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-
-                {tasks.length === 0 && (
-                    <div className="text-center py-16 text-gray-600 text-sm">No tasks yet</div>
-                )}
+            <div className="flex-1 overflow-hidden">
+                <TaskTable
+                    project={project}
+                    initialTasks={tasks}
+                    members={members}
+                    labels={labels}
+                    currentUser={user}
+                />
             </div>
         </div>
     )
