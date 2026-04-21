@@ -6,13 +6,15 @@ import { createAdminClient } from '@/lib/supabase/server'
 
 export async function POST(
     req: NextRequest,
-    { params }: { params: { workspaceId: string } }
+    { params }: { params: Promise<{ workspaceId: string }> }
 ) {
     const currentUser = await getCurrentUser()
-    if (!currentUser) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (!currentUser) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+    const resolvedParams = await params;
 
     // Only owners and members can invite
-    const membership = await getWorkspaceMember(params.workspaceId, currentUser.id)
+    const membership = await getWorkspaceMember(resolvedParams.workspaceId, currentUser.id)
     if (!membership || membership.role === 'viewer') {
         return NextResponse.json({ error: 'Insufficient permissions.' }, { status: 403 })
     }
@@ -41,7 +43,7 @@ export async function POST(
     }
 
     const { error } = await addWorkspaceMember({
-        workspace_id: params.workspaceId,
+        workspace_id: resolvedParams.workspaceId,
         user_id: targetUser.id,
         role,
         invited_by: currentUser.id,
