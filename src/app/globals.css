@@ -88,3 +88,11 @@
     @apply text-xs font-medium text-gray-400;
   }
 }
+
+.tiptap.ProseMirror p.is-editor-empty:first-child::before {
+  color: #4b5563;
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
