@@ -20,6 +20,21 @@ interface RealtimePayload<T = Record<string, unknown>> {
     commit_timestamp: string
 }
 
+// Convert Supabase’s `RealtimePostgresChangesPayload` to your `RealtimePayload`
+function normalizeRealtimePayload<T>(
+    payload: any // RealtimePostgresChangesPayload<any>
+): RealtimePayload<T> {
+    return {
+        eventType: payload.eventType,
+        new: payload.new as T,
+        old: payload.old as Partial<T>,
+        schema: payload.schema,
+        table: payload.table,
+        commit_timestamp: payload.commit_timestamp,
+    }
+}
+
+
 type ChangeHandler<T = Record<string, unknown>> = (
     payload: RealtimePayload<T>
 ) => void
@@ -50,7 +65,7 @@ export function subscribeToProject<T = Record<string, unknown>>(
                 table,
                 filter: `project_id=eq.${projectId}`,
             },
-            (payload) => handler(payload as RealtimePayload<T>)
+            (payload) => handler(normalizeRealtimePayload<T>(payload))
         )
         .subscribe()
 
@@ -85,7 +100,7 @@ export function subscribeToWorkspace<T = Record<string, unknown>>(
                 table,
                 filter: `workspace_id=eq.${workspaceId}`,
             },
-            (payload) => handler(payload as RealtimePayload<T>)
+            (payload) => handler(normalizeRealtimePayload<T>(payload))
         )
         .subscribe()
 
