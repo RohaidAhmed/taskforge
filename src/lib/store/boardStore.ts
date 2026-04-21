@@ -50,7 +50,7 @@ export const BOARD_STATUSES: TaskStatus[] = [
     'in_review',
     'done',
     'cancelled',
-]
+] as const;
 
 export const STATUS_LABELS: Record<TaskStatus, string> = {
     backlog: 'Backlog',
@@ -72,10 +72,12 @@ export const STATUS_COLORS: Record<TaskStatus, string> = {
 
 // ── Helper: build empty columns ───────────────────────────────
 function emptyColumns(): BoardColumns {
-    return Object.fromEntries(
-        BOARD_STATUSES.map((s) => [s, []])
-    ) as BoardColumns;
+    return BOARD_STATUSES.reduce<BoardColumns>((acc, status) => {
+        acc[status] = []
+        return acc
+    }, {} as BoardColumns)
 }
+
 
 // ── Helper: sort by board_order ───────────────────────────────
 function sorted(tasks: TaskWithAssignee[]): TaskWithAssignee[] {
